@@ -10,3 +10,4 @@ langchain-community
 faiss-cpu
 langchain-ollama
 sentence-transformers
+rank_bm25
