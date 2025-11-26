@@ -1,23 +1,50 @@
+from langchain_text_splitters import RecursiveCharacterTextSplitter
+
 def chunk_documents(docs, language, chunk_size=1000, chunk_overlap=200):
+    # Define separators for mixed language support
+    SEPARATORS_EN = ["\n\n", "\n", ".", "?", "!", " ", ""]
+    SEPARATORS_ZH = ["\n\n", "\n", "。", "！", "？", " ", ""]
+
+    # Pre-initialize splitters
+    splitter_en = RecursiveCharacterTextSplitter(
+        chunk_size=chunk_size,
+        chunk_overlap=chunk_overlap,
+        separators=SEPARATORS_EN,
+        keep_separator="end",
+        strip_whitespace=True
+    )
+    
+    splitter_zh = RecursiveCharacterTextSplitter(
+        chunk_size=chunk_size,
+        chunk_overlap=chunk_overlap,
+        separators=SEPARATORS_ZH,
+        keep_separator="end",
+        strip_whitespace=True
+    )
+    
     chunks = []
+    
     for doc_index, doc in enumerate(docs):
         if 'content' in doc and isinstance(doc['content'], str) and 'language' in doc:
             text = doc['content']
-            text_len = len(text)
             lang = doc['language']
-            start_index = 0
-            chunk_count = 0
+            
+            # Select appropriate splitter
+            if lang == 'zh':
+                splitter = splitter_zh
+            else:
+                splitter = splitter_en
+            
             if lang == language:
-                while start_index < text_len:
-                    end_index = min(start_index + chunk_size, text_len)
+                doc_chunks = splitter.split_text(text)
+                for i, chunk_text in enumerate(doc_chunks):
                     chunk_metadata = doc.copy()
                     chunk_metadata.pop('content', None)
-                    chunk_metadata['chunk_index'] = chunk_count
+                    chunk_metadata['chunk_index'] = i
                     chunk = {
-                        'page_content': text[start_index:end_index],
+                        'page_content': chunk_text,
                         'metadata': chunk_metadata
                     }
                     chunks.append(chunk)
-                    start_index += chunk_size - chunk_overlap
-                    chunk_count += 1
+                    
     return chunks
