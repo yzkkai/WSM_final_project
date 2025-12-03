@@ -114,6 +114,8 @@ def generate_answer(query, context_chunks, max_retries=3):
                 options={
                     "temperature": 0.7,
                     "top_p": 0.9,
+                    "num_ctx": 131072,
+                    "num_predict": -1
                 }
             )
             
