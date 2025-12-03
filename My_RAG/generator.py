@@ -21,7 +21,7 @@ def deduplicate_context(chunks):
     return unique_chunks
 
 
-def optimize_context(chunks, max_length=2000):
+def optimize_context(chunks, max_length=None):
     """Optimize context by deduplication and length limiting."""
     # Deduplicate
     chunks = deduplicate_context(chunks)
@@ -31,7 +31,7 @@ def optimize_context(chunks, max_length=2000):
     total_length = 0
     for chunk in chunks:
         content = chunk['page_content']
-        if total_length + len(content) > max_length:
+        if max_length is not None and total_length + len(content) > max_length:
             # Truncate last chunk if needed
             remaining = max_length - total_length
             if remaining > 100:  # Only add if meaningful
