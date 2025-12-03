@@ -73,15 +73,7 @@ def create_retriever(chunks, language):
         def __init__(self, langchain_retriever):
             self.retriever = langchain_retriever
             
-        def retrieve(self, query, top_k=10):
-            """
-            for r in self.retriever.retrievers:
-                if hasattr(r, 'k'):
-                    r.k = 2 * top_k
-                if hasattr(r, 'search_kwargs'):
-                    r.search_kwargs['k'] = 2 * top_k
-            """
-
+        def retrieve(self, query, top_k=5):
             docs = self.retriever.invoke(query)
             
             # Convert back to dict format expected by the app
