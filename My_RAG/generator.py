@@ -43,35 +43,51 @@ def optimize_context(chunks, max_length=None):
     return context_parts
 
 
-def create_prompt(query, context_parts, language):
-    """Create an optimized prompt based on detected language."""
+def create_messages(query, context_parts, language):
     context = "\n\n".join(context_parts)
-    
+
     if language == "zh":
-        prompt = f"""你是一个问答助手。请根据以下检索到的上下文来回答问题。
-如果你不知道答案，请直接说"我不知道"，不要编造答案。
-请保持回答简洁，最多使用三句话。
+        system_content = (
+            "你是一个问答助手，只能根据提供的 RAG 检索结果回答问题。"
+        )
 
-问题: {query}
+        user_content = f"""【问题】
+{query}
 
-上下文:
+【RAG 检索结果】
 {context}
 
-回答:"""
+【回答规则】
+1. 只能使用“RAG 检索结果”中的信息，不得加入外部知识。
+2. 如果检索结果中没有答案，请回答：“无法回答”。
+3. 回答要简洁，不超过 350 个字。
+4. 不要复述上下文中无关的内容，只回答问题本身。
+
+【回答】请在此开始回答："""
     else:
-        prompt = f"""You are an assistant for question-answering tasks.
-Use the following pieces of retrieved context to answer the question.
-If you don't know the answer, just say "I don't know" - do not make up an answer.
-Keep the answer concise, using three sentences maximum.
+        system_content = (
+            "You are a question-answering assistant. You must answer strictly based on the provided RAG retrieval results."
+        )
 
-Question: {query}
+        user_content = f"""[Question]
+{query}
 
-Context:
+[RAG Retrieval Results]
 {context}
 
-Answer:"""
-    
-    return prompt
+[Answering Rules]
+1. You may only use information found in the "RAG Retrieval Results". Do not use any external knowledge.
+2. If the retrieval results do not contain the answer, respond with: "Unable to answer".
+3. Keep the answer concise, no more than 150 words.
+4. Do not repeat irrelevant parts of the retrieved text. Only answer the question directly.
+
+[Answer] Please begin your answer here:"""
+
+    messages = [
+        {"role": "system", "content": system_content},
+        {"role": "user", "content": user_content},
+    ]
+    return messages
 
 
 def generate_answer(query, context_chunks, max_retries=3):
@@ -82,7 +98,7 @@ def generate_answer(query, context_chunks, max_retries=3):
         return "Error: Empty query provided."
     
     if not context_chunks:
-        return "I don't know. No relevant context was found to answer this question."
+        return "Unable to answer."
     
     # Detect language
     language = detect_language(query)
@@ -91,10 +107,10 @@ def generate_answer(query, context_chunks, max_retries=3):
     context_parts = optimize_context(context_chunks)
     
     if not context_parts:
-        return "I don't know. The retrieved context was empty or invalid."
+        return "Unable to answer."
     
     # Create prompt
-    prompt = create_prompt(query, context_parts, language)
+    messages = create_messages(query, context_parts, language)
     
     # Load config
     try:
@@ -108,22 +124,18 @@ def generate_answer(query, context_chunks, max_retries=3):
     
     for attempt in range(max_retries):
         try:
-            response = client.generate(
-                model=ollama_config["model"], 
-                prompt=prompt,
+            response = client.chat(
+                model=ollama_config["model"],
+                messages=messages,
                 options={
                     "temperature": 0.7,
                     "top_p": 0.9,
                     "num_ctx": 131072,
-                    "num_predict": -1
-                }
+                    "num_predict": -1,
+                },
             )
             
-            # Validate response
-            if not response or "response" not in response:
-                raise ValueError("Invalid response format from Ollama")
-            
-            answer = response["response"].strip()
+            answer = response["message"]["content"].strip()
             
             # Post-process answer
             if not answer:
