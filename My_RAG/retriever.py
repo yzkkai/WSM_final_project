@@ -73,7 +73,7 @@ def create_retriever(chunks, language):
         def __init__(self, langchain_retriever):
             self.retriever = langchain_retriever
             
-        def retrieve(self, query, top_k=3):
+        def retrieve(self, query, top_k=1):
             docs = self.retriever.invoke(query)
             
             # Convert back to dict format expected by the app
