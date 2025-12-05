@@ -128,8 +128,9 @@ def generate_answer(query, context_chunks, max_retries=3):
                 model=ollama_config["model"],
                 messages=messages,
                 options={
-                    "temperature": 0.7,
-                    "top_p": 0.9,
+                    "temperature": 0.0,
+                    "top_p": 1.0,
+                    "top_k": 0,
                     "num_ctx": 131072,
                     "num_predict": -1,
                 },
