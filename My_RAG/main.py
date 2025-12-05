@@ -36,7 +36,11 @@ def main(query_path, docs_path, language, output_path):
         answer = generate_answer(query_text, retrieved_chunks)
 
         query["prediction"]["content"] = answer
-        query["prediction"]["references"] = [chunk['page_content'] for chunk in retrieved_chunks]
+
+        if "Unable to answer" in answer or "无法回答" in answer:
+            query["prediction"]["references"] = []
+        else:
+            query["prediction"]["references"] = [chunk['page_content'] for chunk in retrieved_chunks]
 
     save_jsonl(output_path, queries)
     print("Predictions saved at '{}'".format(output_path))
