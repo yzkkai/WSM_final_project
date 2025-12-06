@@ -1,6 +1,6 @@
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 
-def chunk_documents(docs, language, chunk_size=500, chunk_overlap=100):
+def chunk_documents(docs, language, chunk_size=384, chunk_overlap=64):
     # Define separators for mixed language support
     SEPARATORS_EN = ["\n\n", "\n", ".", "?", "!", " ", ""]
     SEPARATORS_ZH = ["\n\n", "\n", "。", "！", "？", "；", "：", "，", "、", " "]
