@@ -47,72 +47,41 @@ def create_messages(query, context_parts, language):
     context = "\n\n".join(context_parts)
 
     if language == "zh":
-        system_content = """### 角色
-你是一个“检索增强生成（RAG）”问答助手。
+        system_content = (
+            "你是一个问答助手，只能根据提供的 RAG 检索结果回答问题。"
+        )
 
-### 严格规则
-1. 你只能使用用户消息中「RAG 检索结果」里的内容回答问题。
-2. 你不能使用任何外部知识、世界知识、常识或猜测。
-3. 对于每个问题，你只有两种输出方式，并且必须只选择其中一种：
-
-   - 选项 A（可以回答）  
-     条件：如果「RAG 检索结果」中包含足够、清楚的信息，可以完整回答整个问题。  
-     输出：只输出一个简短答案，不超过 350 个字。  
-     限制：答案中不能出现“无法回答”这四个字，也不能出现类似意思的表述。
-
-   - 选项 B（无法回答）  
-     条件：如果「RAG 检索结果」缺少信息、不完整、与问题无关，或者没有清楚包含答案。  
-     输出：只输出这四个字：无法回答
-
-4. 不能同时使用选项 A 和选项 B。不要先回答一段内容，又在最后加上“无法回答”。
-5. 不要重复问题，不要提到 RAG 或“检索结果”，不要解释你的思考过程，不要添加寒暄或其他多余文字。
-6. 你的回复必须只包含最终答案本身。"""
-
-        user_content = f"""[RAG 检索结果]
-{context}
-
-[问题]
+        user_content = f"""【问题】
 {query}
 
-### 作答要求
-1. 如果「RAG 检索结果」中有足够、清楚的信息，可以完整回答问题，只输出一个简短答案（不超过 350 个字）。
-2. 如果「RAG 检索结果」中没有相关或足够的信息，或者你无法确定答案，只输出这四个字：无法回答
-3. 不要使用任何不在「RAG 检索结果」中的信息。
-4. 不要重复问题，不要解释原因，不要添加多余说明或客套话，只输出答案本身。"""
+【RAG 检索结果】
+{context}
+
+【回答规则】
+1. 只能使用“RAG 检索结果”中的信息，不得加入外部知识。
+2. 如果检索结果中没有答案，请回答：“无法回答”。
+3. 回答要简洁，不超过 350 个字。
+4. 不要复述上下文中无关的内容，只回答问题本身。
+
+【回答】请在此开始回答："""
     else:
-        system_content = """### Role
-You are a Retrieval-Augmented Generation (RAG) question-answering assistant.
+        system_content = (
+            "You are a question-answering assistant. You must answer strictly based on the provided RAG retrieval results."
+        )
 
-### Strict Rules
-1. You may only use the content in the "RAG Retrieval Results" section of the user message to answer the question.
-2. You must not use any external knowledge, world knowledge, common sense, or guesses.
-3. For each question, you have exactly two possible output behaviors, and you must choose only one:
-
-   - Option A (Answerable)  
-     Condition: The RAG Retrieval Results contain enough clear information to fully answer the entire question.  
-     Output: Output only one short answer, no more than 150 words.  
-     Constraint: The answer must not contain the phrase "Unable to answer" or any wording with a similar meaning.
-
-   - Option B (Not answerable)  
-     Condition: The RAG Retrieval Results are missing, incomplete, irrelevant, or do not clearly contain the answer.  
-     Output: Output exactly this text, and nothing else: Unable to answer
-
-4. You must not use Option A and Option B at the same time. Do not first answer and then add "Unable to answer".
-5. Do not repeat the question. Do not mention RAG or "retrieval results". Do not explain your reasoning. Do not add greetings or any extra text.
-6. Your reply must contain only the final answer itself."""
-
-        user_content = f"""[RAG Retrieval Results]
-{context}
-
-[Question]
+        user_content = f"""[Question]
 {query}
 
-### Answering Requirements
-1. If the RAG Retrieval Results contain enough clear information to fully answer the question, output only one short answer (no more than 150 words).
-2. If the RAG Retrieval Results do not contain relevant or sufficient information, or you are not sure of the answer, output exactly:
-   Unable to answer
-3. Do not use any information that is not in the RAG Retrieval Results.
-4. Do not repeat the question, do not explain your reasoning, and do not add extra comments or politeness. Output only the answer itself."""
+[RAG Retrieval Results]
+{context}
+
+[Answering Rules]
+1. You may only use information found in the "RAG Retrieval Results". Do not use any external knowledge.
+2. If the retrieval results do not contain the answer, respond with: "Unable to answer".
+3. Keep the answer concise, no more than 150 words.
+4. Do not repeat irrelevant parts of the retrieved text. Only answer the question directly.
+
+[Answer] Please begin your answer here:"""
 
     messages = [
         {"role": "system", "content": system_content},
