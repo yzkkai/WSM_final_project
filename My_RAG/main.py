@@ -1,46 +1,81 @@
 from tqdm import tqdm
 from utils import load_jsonl, save_jsonl
-from chunker import chunk_documents
+from chunker_single import chunk_document
 from retriever import create_retriever
 from generator import generate_answer
 import argparse
 
+
+def build_per_doc_retrievers(docs, language):
+    per_doc = []
+
+    for doc in docs:
+        if doc["language"] != language:
+            continue
+
+        chunks = chunk_document(doc, language)
+        retriever = create_retriever(chunks, language)
+
+        per_doc.append(retriever)
+
+    return per_doc
+
+
+def build_finance_fallback_retriever(docs, language):
+    finance_chunks = []
+    for doc in docs:
+        if doc["domain"] != "Finance" or doc["language"] != language:
+            continue
+        finance_chunks.extend(chunk_document(doc, language))
+
+    return create_retriever(finance_chunks, language)
+
+
 def main(query_path, docs_path, language, output_path):
-    # 1. Load Data
     print("Loading documents...")
     docs_for_chunking = load_jsonl(docs_path)
     queries = load_jsonl(query_path)
     print(f"Loaded {len(docs_for_chunking)} documents.")
     print(f"Loaded {len(queries)} queries.")
 
-    # 2. Chunk Documents
-    print("Chunking documents...")
-    chunks = chunk_documents(docs_for_chunking, language)
-    print(f"Created {len(chunks)} chunks.")
-
-    # 3. Create Retriever
-    print("Creating retriever...")
-    retriever = create_retriever(chunks, language)
-    print("Retriever created successfully.")
-
+    print("Building retrievers...")
+    per_doc_retrievers = build_per_doc_retrievers(docs_for_chunking, language)
+    finance_retriever = build_finance_fallback_retriever(docs_for_chunking, language)
 
     for query in tqdm(queries, desc="Processing Queries"):
-        # 4. Retrieve relevant chunks
-        query_text = query['query']['content']
-        # print(f"\nRetrieving chunks for query: '{query_text}'")
-        retrieved_chunks = retriever.retrieve(query_text)
-        # print(f"Retrieved {len(retrieved_chunks)} chunks.")
+        query_text = query["query"]["content"]
 
-        # 5. Generate Answer
-        # print("Generating answer...")
-        answer = generate_answer(query_text, retrieved_chunks)
+        retrieved_chunks = []
+        for doc, retriever in zip(docs_for_chunking, per_doc_retrievers):
+            domain = doc["domain"]
+            if domain == "Finance":
+                if doc["company_name"] in query_text:
+                    retrieved_chunks.append((f"Company: {doc['company_name']}", retriever.retrieve(query_text, 5)))
+            elif domain == "Law":
+                tmp = doc["court_name"]
+                if tmp.replace(",", "") in query_text.replace(",", ""):
+                    retrieved_chunks.append((f"Court: {doc['court_name']}", retriever.retrieve(query_text, 5)))
+            elif domain == "Medical":
+                tmp = doc["hospital_patient_name"]
+                hospital, patient = tmp.split("_", 1)
+                if hospital in query_text or patient in query_text:
+                    retrieved_chunks.append((f"Hospital: {hospital}, Patient: {patient}", retriever.retrieve(query_text, 5)))
+            else:
+                raise ValueError("domain error")
+
+        if not retrieved_chunks:
+            retrieved_chunks = [("Topic: Finance", finance_retriever.retrieve(query_text, 10))]
+
+        answer = generate_answer(query_text, retrieved_chunks, language)
 
         query["prediction"]["content"] = answer
 
         if "Unable to answer" in answer or "无法回答" in answer:
             query["prediction"]["references"] = []
         else:
-            query["prediction"]["references"] = [chunk['page_content'] for chunk in retrieved_chunks]
+            for chunk in retrieved_chunks:
+                for sentence in chunk[1]:
+                    query["prediction"]["references"].append(sentence["page_content"])
 
     save_jsonl(output_path, queries)
     print("Predictions saved at '{}'".format(output_path))

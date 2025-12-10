@@ -1,11 +1,8 @@
 from langchain_classic.retrievers.ensemble import EnsembleRetriever
-from langchain_classic.retrievers.document_compressors.cross_encoder_rerank import CrossEncoderReranker
 from langchain_community.retrievers import BM25Retriever
 from langchain_community.vectorstores import FAISS
-from langchain_community.cross_encoders import HuggingFaceCrossEncoder
 from langchain_ollama import OllamaEmbeddings
 from langchain_core.documents import Document
-from langchain_classic.retrievers.contextual_compression import ContextualCompressionRetriever
 import os
 import re
 import jieba
@@ -33,20 +30,18 @@ def preprocess_text(text):
         tokens = re.findall(r'\w+', text.lower())
         stopwords = STOPWORDS_EN
     
-    return [token for token in tokens if token not in stopwords and token.strip()]
+    return [token.strip() for token in tokens if token.strip() not in stopwords and token.strip()]
 
 def preprocess_text_str(text):
     return " ".join(preprocess_text(text))
 
 def create_retriever(chunks, language):
-    """Creates a LangChain Ensemble retriever with BGE re-ranker from document chunks."""
-    
     # Convert chunks to LangChain Documents
     documents = []
     for chunk in chunks:
         documents.append(Document(
             page_content=chunk['page_content'],
-            metadata=chunk.get('metadata', {})
+            metadata=chunk['metadata']
         ))
     
     # 1. BM25 Retriever
@@ -64,7 +59,7 @@ def create_retriever(chunks, language):
     # 3. Ensemble Retriever
     ensemble_retriever = EnsembleRetriever(
         retrievers=[bm25_retriever, vector_retriever],
-        weights=[0.4, 0.6]
+        weights=[0.3, 0.7]
     )
     
     

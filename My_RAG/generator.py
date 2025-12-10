@@ -2,54 +2,35 @@ from ollama import Client
 import time
 from utils import load_ollama_config
 
-def detect_language(text):
-    """Detect if text is primarily Chinese or English."""
-    chinese_chars = sum(1 for c in text if '\u4e00' <= c <= '\u9fff')
-    total_chars = len([c for c in text if c.strip()])
-    return "zh" if chinese_chars / max(total_chars, 1) > 0.3 else "en"
+
+def build_context(context_chunks, language):
+    blocks = []
+
+    for idx, (topic, sentences) in enumerate(context_chunks, start=1):
+        sentences.sort(key=lambda x: x["metadata"]["index"])
+        content = "\n".join([f"[{idx}] {sentence["page_content"]}" for idx, sentence in enumerate(sentences)])
+
+        if language == "zh":
+            block = (
+                f"【检索结果 {idx}】\n"
+                f"{topic}\n"
+                f"{content}"
+            )
+        else:
+            block = (
+                f"[Result {idx}]\n"
+                f"{topic}\n"
+                f"{content}"
+            )
+
+        blocks.append(block)
+
+    return "\n\n".join(blocks)
 
 
-def deduplicate_context(chunks):
-    """Remove duplicate chunks based on content."""
-    seen = set()
-    unique_chunks = []
-    for chunk in chunks:
-        content = chunk['page_content'].strip()
-        if content and content not in seen:
-            seen.add(content)
-            unique_chunks.append(chunk)
-    return unique_chunks
-
-
-def optimize_context(chunks, max_length=None):
-    """Optimize context by deduplication and length limiting."""
-    # Deduplicate
-    chunks = deduplicate_context(chunks)
-    
-    # Limit total length
-    context_parts = []
-    total_length = 0
-    for chunk in chunks:
-        content = chunk['page_content']
-        if max_length is not None and total_length + len(content) > max_length:
-            # Truncate last chunk if needed
-            remaining = max_length - total_length
-            if remaining > 100:  # Only add if meaningful
-                context_parts.append(content[:remaining] + "...")
-            break
-        context_parts.append(content)
-        total_length += len(content)
-    
-    return context_parts
-
-
-def create_messages(query, context_parts, language):
-    context = "\n\n".join(context_parts)
-
+def create_messages(query, context, language):
     if language == "zh":
-        system_content = (
-            "你是一个问答助手，只能根据提供的 RAG 检索结果回答问题。"
-        )
+        system_content = "你是一个问答助手，只能根据提供的 RAG 检索结果回答问题。"
 
         user_content = f"""【问题】
 {query}
@@ -65,9 +46,7 @@ def create_messages(query, context_parts, language):
 
 【回答】请在此开始回答："""
     else:
-        system_content = (
-            "You are a question-answering assistant. You must answer strictly based on the provided RAG retrieval results."
-        )
+        system_content = "You are a question-answering assistant. You must answer strictly based on the provided RAG retrieval results."
 
         user_content = f"""[Question]
 {query}
@@ -90,28 +69,18 @@ def create_messages(query, context_parts, language):
     return messages
 
 
-def generate_answer(query, context_chunks, max_retries=3):
+def generate_answer(query, context_chunks, language, max_retries=3):
     """Generate answer with improved prompting, context handling, and error handling."""
-    
-    # Validate inputs
-    if not query or not query.strip():
-        return "Error: Empty query provided."
     
     if not context_chunks:
         return "Unable to answer."
     
-    # Detect language
-    language = detect_language(query)
-    
     # Optimize context
-    context_parts = optimize_context(context_chunks)
-    
-    if not context_parts:
-        return "Unable to answer."
+    context = build_context(context_chunks, language)
     
     # Create prompt
-    messages = create_messages(query, context_parts, language)
-    
+    messages = create_messages(query, context, language)
+
     # Load config
     try:
         ollama_config = load_ollama_config()
@@ -152,27 +121,3 @@ def generate_answer(query, context_chunks, max_retries=3):
     
     # All retries failed
     return f"Error: Failed to generate answer after {max_retries} attempts - {str(last_error)}"
-
-
-if __name__ == "__main__":
-    # Test the function
-    print("=== Test 1: English Query ===")
-    query = "What is the capital of France?"
-    context_chunks = [
-        {"page_content": "France is a country in Europe. Its capital is Paris."},
-        {"page_content": "The Eiffel Tower is located in Paris, the capital city of France."}
-    ]
-    answer = generate_answer(query, context_chunks)
-    print("Query:", query)
-    print("Answer:", answer)
-    
-    print("\n=== Test 2: Chinese Query ===")
-    query_zh = "法国的首都是什么？"
-    answer_zh = generate_answer(query_zh, context_chunks)
-    print("Query:", query_zh)
-    print("Answer:", answer_zh)
-    
-    print("\n=== Test 3: No Context ===")
-    answer_no_ctx = generate_answer("What is quantum physics?", [])
-    print("Query: What is quantum physics?")
-    print("Answer:", answer_no_ctx)
