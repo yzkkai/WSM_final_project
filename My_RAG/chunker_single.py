@@ -1,37 +1,40 @@
-def split(text, sep):
-    marker = "<<<SPLIT_MARKER>>>"
+import spacy
 
-    tmp = text
-    for p in sep:
-        tmp = tmp.replace(p, p + marker)
+_NLP_CACHE = {}
 
-    parts = [s.strip() for s in tmp.split(marker) if s.strip()]
-    return parts
+def get_spacy_pipeline(lang):
+    if lang not in _NLP_CACHE:
+        if lang == "en":
+            model_name = "en_core_web_trf"
+        elif lang == "zh":
+            model_name = "zh_core_web_trf"
+
+        _NLP_CACHE[lang] = spacy.load(model_name)
+
+    return _NLP_CACHE[lang]
 
 
 def chunk_document(doc, language):
-    SEPARATORS_EN = ["\n", ".", "?", "!"]
-    SEPARATORS_ZH = ["\n", "。", "！", "？"]
+    text = doc["content"]
 
+    nlp = get_spacy_pipeline(language)
 
-    if doc['language'] != language:
-        raise ValueError("language error")
-
-    if language == 'en':
-        sep = SEPARATORS_EN
-    else:
-        sep = SEPARATORS_ZH
+    spacy_doc = nlp(text)
 
     chunks = []
-    if 'content' in doc and isinstance(doc['content'], str) and 'language' in doc:
-        text = doc['content']
-    
-        doc_chunks = split(text, sep)
-        for idx, chunk_text in enumerate(doc_chunks):
-            chunk = {
-                'page_content': chunk_text,
-                'metadata': {"index": idx}
-            }
-            chunks.append(chunk)
-                    
+    for idx, sent in enumerate(spacy_doc.sents):
+        sent_text = sent.text.strip()
+        if not sent_text:
+            continue
+
+        chunk = {
+            "page_content": sent_text,
+            "metadata": {
+                "index": idx,
+                "start_char": sent.start_char,
+                "end_char": sent.end_char,
+            },
+        }
+        chunks.append(chunk)
+
     return chunks

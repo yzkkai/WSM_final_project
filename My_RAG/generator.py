@@ -32,11 +32,11 @@ def create_messages(query, context, language):
     if language == "zh":
         system_content = "你是一个问答助手，只能根据提供的 RAG 检索结果回答问题。"
 
-        user_content = f"""【问题】
-{query}
-
-【RAG 检索结果】
+        user_content = f"""【RAG 检索结果】
 {context}
+
+【问题】
+{query}
 
 【回答规则】
 1. 只能使用“RAG 检索结果”中的信息，不得加入外部知识。
@@ -48,11 +48,11 @@ def create_messages(query, context, language):
     else:
         system_content = "You are a question-answering assistant. You must answer strictly based on the provided RAG retrieval results."
 
-        user_content = f"""[Question]
-{query}
-
-[RAG Retrieval Results]
+        user_content = f"""[RAG Retrieval Results]
 {context}
+
+[Question]
+{query}
 
 [Answering Rules]
 1. You may only use information found in the "RAG Retrieval Results". Do not use any external knowledge.

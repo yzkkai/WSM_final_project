@@ -9,24 +9,34 @@ import argparse
 def build_per_doc_retrievers(docs, language):
     per_doc = []
 
-    for doc in docs:
+    total = 0
+    for doc in tqdm(docs, desc="Building retrievers"):
         if doc["language"] != language:
             continue
 
         chunks = chunk_document(doc, language)
+        total += len(chunks)
         retriever = create_retriever(chunks, language)
-
         per_doc.append(retriever)
 
+    print(total)
     return per_doc
 
 
 def build_finance_fallback_retriever(docs, language):
     finance_chunks = []
+
+    total = 0
     for doc in docs:
         if doc["domain"] != "Finance" or doc["language"] != language:
             continue
-        finance_chunks.extend(chunk_document(doc, language))
+
+        chunks = chunk_document(doc, language)
+        for chunk in chunks:
+            chunk["metadata"]["index"] += total
+        total += len(chunks)
+
+        finance_chunks.extend(chunks)
 
     return create_retriever(finance_chunks, language)
 
@@ -38,40 +48,41 @@ def main(query_path, docs_path, language, output_path):
     print(f"Loaded {len(docs_for_chunking)} documents.")
     print(f"Loaded {len(queries)} queries.")
 
-    print("Building retrievers...")
     per_doc_retrievers = build_per_doc_retrievers(docs_for_chunking, language)
+
+    print("Building finance retriever...")
     finance_retriever = build_finance_fallback_retriever(docs_for_chunking, language)
 
     for query in tqdm(queries, desc="Processing Queries"):
         query_text = query["query"]["content"]
 
-        cnt = 0
         retrieved_chunks = []
         for doc, retriever in zip(docs_for_chunking, per_doc_retrievers):
             domain = doc["domain"]
             if domain == "Finance":
                 if doc["company_name"] in query_text:
-                    cnt += 1
-                    retrieved_chunks.append((f"Company: {doc['company_name']}", retriever.retrieve(query_text, 25)))
+                    retrieved_chunks.append((f"Company: {doc['company_name']}", retriever.retrieve(query_text, 10)))
             elif domain == "Law":
                 tmp = doc["court_name"]
                 if tmp.replace(",", "") in query_text.replace(",", ""):
-                    cnt += 1
-                    retrieved_chunks.append((f"Court: {doc['court_name']}", retriever.retrieve(query_text, 25)))
+                    retrieved_chunks.append((f"Court: {doc['court_name']}", retriever.retrieve(query_text, 10)))
             elif domain == "Medical":
                 tmp = doc["hospital_patient_name"]
                 hospital, patient = tmp.split("_", 1)
-                if hospital in query_text or patient in query_text:
-                    cnt += 1
-                    retrieved_chunks.append((f"Hospital: {hospital}, Patient: {patient}", retriever.retrieve(query_text, 25)))
-            else:
-                raise ValueError("domain error")
-
-        if cnt > 2:
-            raise ValueError("?")
+                if hospital in query_text and patient in query_text:
+                    retrieved_chunks.append((f"Hospital: {hospital}, Patient: {patient}", retriever.retrieve(query_text, 10)))
 
         if not retrieved_chunks:
-            retrieved_chunks = [("Topic: Finance", finance_retriever.retrieve(query_text, 50))]
+            for doc, retriever in zip(docs_for_chunking, per_doc_retrievers):
+                domain = doc["domain"]
+                if domain == "Medical":
+                    tmp = doc["hospital_patient_name"]
+                    hospital, patient = tmp.split("_", 1)
+                    if hospital in query_text or patient in query_text:
+                        retrieved_chunks.append((f"Hospital: {hospital}, Patient: {patient}", retriever.retrieve(query_text, 10)))
+
+        if not retrieved_chunks:
+            retrieved_chunks = [("Topic: Finance", finance_retriever.retrieve(query_text, 25))]
 
         answer = generate_answer(query_text, retrieved_chunks, language)
 
