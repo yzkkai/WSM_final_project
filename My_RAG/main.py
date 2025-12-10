@@ -45,26 +45,33 @@ def main(query_path, docs_path, language, output_path):
     for query in tqdm(queries, desc="Processing Queries"):
         query_text = query["query"]["content"]
 
+        cnt = 0
         retrieved_chunks = []
         for doc, retriever in zip(docs_for_chunking, per_doc_retrievers):
             domain = doc["domain"]
             if domain == "Finance":
                 if doc["company_name"] in query_text:
-                    retrieved_chunks.append((f"Company: {doc['company_name']}", retriever.retrieve(query_text, 5)))
+                    cnt += 1
+                    retrieved_chunks.append((f"Company: {doc['company_name']}", retriever.retrieve(query_text, 25)))
             elif domain == "Law":
                 tmp = doc["court_name"]
                 if tmp.replace(",", "") in query_text.replace(",", ""):
-                    retrieved_chunks.append((f"Court: {doc['court_name']}", retriever.retrieve(query_text, 5)))
+                    cnt += 1
+                    retrieved_chunks.append((f"Court: {doc['court_name']}", retriever.retrieve(query_text, 25)))
             elif domain == "Medical":
                 tmp = doc["hospital_patient_name"]
                 hospital, patient = tmp.split("_", 1)
                 if hospital in query_text or patient in query_text:
-                    retrieved_chunks.append((f"Hospital: {hospital}, Patient: {patient}", retriever.retrieve(query_text, 5)))
+                    cnt += 1
+                    retrieved_chunks.append((f"Hospital: {hospital}, Patient: {patient}", retriever.retrieve(query_text, 25)))
             else:
                 raise ValueError("domain error")
 
+        if cnt > 2:
+            raise ValueError("?")
+
         if not retrieved_chunks:
-            retrieved_chunks = [("Topic: Finance", finance_retriever.retrieve(query_text, 10))]
+            retrieved_chunks = [("Topic: Finance", finance_retriever.retrieve(query_text, 50))]
 
         answer = generate_answer(query_text, retrieved_chunks, language)
 

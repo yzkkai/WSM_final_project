@@ -80,6 +80,7 @@ def generate_answer(query, context_chunks, language, max_retries=3):
     
     # Create prompt
     messages = create_messages(query, context, language)
+    print(messages)
 
     # Load config
     try:
