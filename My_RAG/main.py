@@ -70,12 +70,9 @@ def main(query_path, docs_path, language, output_path):
 
         query["prediction"]["content"] = answer
 
-        if "Unable to answer" in answer or "无法回答" in answer:
-            query["prediction"]["references"] = []
-        else:
-            for chunk in retrieved_chunks:
-                for sentence in chunk[1]:
-                    query["prediction"]["references"].append(sentence["page_content"])
+        for chunk in retrieved_chunks:
+            for sentence in chunk[1]:
+                query["prediction"]["references"].append(sentence["page_content"])
 
     save_jsonl(output_path, queries)
     print("Predictions saved at '{}'".format(output_path))
