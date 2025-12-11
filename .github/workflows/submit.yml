@@ -28,6 +28,9 @@ jobs:
         with:
           python-version: '3.10'
 
+      - name: Install dependencies
+        run: if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
+
       - name: Submit code
         run: |
           curl -X POST "https://towel.cs.nccu.edu.tw/wsm/submit/submit" \
