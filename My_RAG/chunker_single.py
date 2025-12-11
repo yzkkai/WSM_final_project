@@ -1,6 +1,8 @@
 import spacy
+import re
 
 _NLP_CACHE = {}
+
 
 def get_spacy_pipeline(lang):
     if lang not in _NLP_CACHE:
@@ -12,6 +14,42 @@ def get_spacy_pipeline(lang):
         _NLP_CACHE[lang] = spacy.load(model_name)
 
     return _NLP_CACHE[lang]
+
+
+def is_low_info_sentence(language, text, nlp, min_chars=6, min_content_tokens=4):
+    if not text:
+        return True
+
+    sent = text.strip()
+    if not sent:
+        return True
+
+    if len(sent) < min_chars:
+        return True
+
+    doc = nlp(sent)
+
+    total_tokens = 0
+    content_tokens = 0
+
+    for tok in doc:
+        if tok.is_space or tok.is_punct:
+            continue
+
+        total_tokens += 1
+
+        if tok.is_stop:
+            continue
+
+        content_tokens += 1
+
+    if total_tokens == 0:
+        return True
+
+    if content_tokens < min_content_tokens:
+        return True
+
+    return False
 
 
 def chunk_document(doc, language):
