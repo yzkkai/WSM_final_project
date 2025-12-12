@@ -7,11 +7,11 @@ def build_context(context_chunks, language):
     blocks = []
 
     for idx, (topic, sentences) in enumerate(context_chunks, start=1):
-        if isinstance(context_chunks, list):
+        if isinstance(sentences, list):
             sentences.sort(key=lambda x: x["metadata"]["index"])
             content = "\n".join([f"[{idx}] {sentence['page_content']}" for idx, sentence in enumerate(sentences)])
         else:
-            content = context_chunks
+            content = sentences
 
         if language == "zh":
             block = (
