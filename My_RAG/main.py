@@ -78,8 +78,11 @@ def main(query_path, docs_path, language, output_path):
         query["prediction"]["content"] = answer
 
         for chunk in retrieved_chunks:
-            for sentence in chunk[1]:
-                query["prediction"]["references"].append(sentence["page_content"])
+            if isinstance(chunk[1], str):
+                query["prediction"]["references"].append(chunk[1])
+            else:
+                for sentence in chunk[1]:
+                    query["prediction"]["references"].append(sentence["page_content"])
 
     save_jsonl(output_path, queries)
     print("Predictions saved at '{}'".format(output_path))
