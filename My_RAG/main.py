@@ -1,4 +1,5 @@
 from tqdm import tqdm
+import pickle
 from utils import load_jsonl, save_jsonl
 from chunker import chunk_documents
 from retriever import create_retriever
@@ -15,7 +16,15 @@ def main(query_path, docs_path, language, output_path):
 
     # 2. Chunk Documents
     print("Chunking documents...")
-    chunks = chunk_documents(docs_for_chunking, language)
+    try :
+        with open(f"chunk_{language}.pickle", "rb") as f:
+            chunks = pickle.load(f)
+    except:
+        chunks = chunk_documents(docs_for_chunking, language, use_vllm = True)
+        with open(f"chunk_{language}.pickle", "wb") as f:
+            pickle.dump(chunks, f)
+
+
     print(f"Created {len(chunks)} chunks.")
 
     # 3. Create Retriever
