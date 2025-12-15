@@ -11,3 +11,6 @@ faiss-cpu
 langchain-ollama
 sentence-transformers
 rank_bm25
+spacy==3.8.11
+https://github.com/explosion/spacy-models/releases/download/en_core_web_trf-3.8.0/en_core_web_trf-3.8.0-py3-none-any.whl
+https://github.com/explosion/spacy-models/releases/download/zh_core_web_trf-3.8.0/zh_core_web_trf-3.8.0-py3-none-any.whl
