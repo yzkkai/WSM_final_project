@@ -80,7 +80,7 @@ def create_retriever(chunks, language):
     # 2. Dense Retriever (FAISS + Ollama)
     ollama_conf = load_ollama_config()
     embeddings = OllamaEmbeddings(
-        model="embeddinggemma:300m",
+        model="qwen3-embedding:0.6b",
         base_url=ollama_conf["host"],
     )
     vectorstore = FAISS.from_documents(documents, embeddings)
