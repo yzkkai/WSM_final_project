@@ -43,6 +43,22 @@ def chunk_documents(
         try:
             from vllm import LLM, SamplingParams
             
+            # Select Prompt Template based on Language
+            if language == 'zh':
+                system_prompt_template = "你是一个文档处理助手。"
+                user_prompt_template = (
+                    "请将以下文本分割成符合逻辑的语义片段。"
+                    "严格返回一个有效的JSON字符串列表。"
+                    "不要修改文本内容。\n\n文本：\n{content}"
+                )
+            else:
+                system_prompt_template = "You are a document processing assistant."
+                user_prompt_template = (
+                    "Split the following text into logical semantic segments. "
+                    "Return strictly a valid JSON list of strings. "
+                    "Do not alter the text content.\n\nText:\n{content}"
+                )
+
             batch_indices = []
             prompts = []
             
@@ -54,13 +70,9 @@ def chunk_documents(
                     
                     batch_indices.append(i)
                     
-                    system_prompt = "You are a document processing assistant."
-                    user_prompt = (
-                        f"Split the following text into logical semantic segments. "
-                        f"Return strictly a valid JSON list of strings. "
-                        f"Do not alter the text content.\n\nText:\n{content}"
-                    )
-                    prompts.append(f"{system_prompt}\n{user_prompt}")
+                    # Format prompt with content
+                    user_prompt = user_prompt_template.format(content=content)
+                    prompts.append(f"{system_prompt_template}\n{user_prompt}")
 
             if prompts:
                 # Initialize VLLM Engine
@@ -96,7 +108,7 @@ def chunk_documents(
         if not (content and isinstance(content, str) and doc_lang):
             continue
 
-        # Select Splitter
+        # Select Standard Splitter
         splitter = splitters["zh"] if doc_lang == 'zh' else splitters["en"]
 
         if doc_lang == language:
@@ -107,7 +119,6 @@ def chunk_documents(
                 candidate_chunks = semantic_chunks_map[doc_index]
                 
                 # VALIDATION CHECK: Ensure every chunk actually exists in the source text
-                # We check if the chunk is a substring of the content.
                 all_chunks_valid = True
                 for chunk_str in candidate_chunks:
                     if chunk_str not in content:
@@ -122,7 +133,6 @@ def chunk_documents(
                 candidate_chunks = splitter.split_text(content)
                 
                 # VALIDATION CHECK: Strictly filter standard chunks as requested
-                # (Standard splitters rarely fail this, but we enforce the rule)
                 final_doc_chunks = [c for c in candidate_chunks if c in content]
 
             # Output Formatting
